@@ -14,7 +14,7 @@ spring:
 
     properties:
       hibernate:
-        #show_sql: true # sql ?? ??
+        show_sql: true # sql ?? ??
         format_sql: true
 logging:
   level:
