@@ -20,7 +20,7 @@ public class MemberController {
         return member.getUsername();
     }
     @GetMapping("/members2/{id}")
-    public String findMember2(@PathVariable("id")Member member){ // 위 메서드와 동일한 기능을 수행하도록 스프링 부트에서 컨버팅을 해줌 <- 가능은 하지만 권장하지는 않는 방식
+    public String findMember2(@PathVariable("id")Member member){ // 위 메서드와 동일한 기능을 수행하도록 스프링 부트에서 컨버팅을 해줌(트랙젝션 모호성으로 조회용으로만 사용해야함) <- 가능은 하지만 권장하지는 않는 방식
         return member.getUsername();
     }
 
