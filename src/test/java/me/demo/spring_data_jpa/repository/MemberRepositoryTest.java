@@ -27,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class MemberRepositoryTest {
     @Autowired MemberRepository memberRepository;
     @Autowired TeamRepository teamRepository;
+    @Autowired
+    EntityManager em;
     @Test
     public void testMember(){
         Member member = new Member("memberA");
@@ -209,4 +211,132 @@ class MemberRepositoryTest {
         assertThat(page.hasNext()).isTrue(); // 다음 페이지가 존재하지는지
     }
 
+    @Test
+    public void bulkUpdate(){ // 벌크 연산
+        memberRepository.save(new Member("member1",10));
+        memberRepository.save(new Member("member2",19));
+        memberRepository.save(new Member("member3",20));
+        memberRepository.save(new Member("member4",21));
+        memberRepository.save(new Member("member5",40));
+
+        int resultCount = memberRepository.bulkAgePlus(20);
+        em.flush();
+        em.clear(); // 벌크 연산 후에는 영속성 컨텍스트를 DB에서 다시 불러와서 초기화 해야한다.
+
+        List<Member> result = memberRepository.findByUsername("member5");
+        Member member = result.get(0);
+        System.out.println("member = " + member);
+
+
+        assertThat(resultCount).isEqualTo(3);
+    }
+
+    @Test
+    public void findMemberLazy(){
+
+        Team teamA = new Team("teamA");
+        Team teamB = new Team("teamB");
+
+        teamRepository.save(teamA);
+        teamRepository.save(teamB);
+
+        Member member1 = new Member("member1", 10, teamA);
+        Member member2 = new Member("member2", 10, teamB);
+
+        memberRepository.save(member1);
+        memberRepository.save(member2);
+
+        em.flush();
+        em.clear();
+
+        List<Member> members = memberRepository.findAll();
+        for (Member member : members) {
+            System.out.println("member = " + member);
+            System.out.println("member.getTeam().getClass() = " + member.getTeam().getClass()); // 프록시 객체가 조회됨
+            System.out.println("member.getTeam().getName() = " + member.getTeam().getName()); // 패치 조인이 적용되기 이전에는 team 테이블에 select 문이 멤버 숫자만큼 날아가게 된다. <- N+1 문제
+        }
+    }
+    @Test
+    public void findMemberLazyFetchJoin(){
+
+        Team teamA = new Team("teamA");
+        Team teamB = new Team("teamB");
+
+        teamRepository.save(teamA);
+        teamRepository.save(teamB);
+
+        Member member1 = new Member("member1", 10, teamA);
+        Member member2 = new Member("member2", 10, teamB);
+
+        memberRepository.save(member1);
+        memberRepository.save(member2);
+
+        em.flush();
+        em.clear();
+
+        List<Member> members = memberRepository.findMemberFetchJoin();
+        for (Member member : members) {
+            System.out.println("member = " + member);
+            System.out.println("member.getTeam().getClass() = " + member.getTeam().getClass()); // 실제 엔티티 객체가 조회됨
+            System.out.println("member.getTeam().getName() = " + member.getTeam().getName()); // team 과 member 테이블을 조인해서 한방에 가져옴 <- N+1 문제 해결
+        }
+    }
+
+    @Test
+    public void findEntityGraphByUsername(){
+
+        Team teamA = new Team("teamA");
+        Team teamB = new Team("teamB");
+
+        teamRepository.save(teamA);
+        teamRepository.save(teamB);
+
+        Member member1 = new Member("member1", 10, teamA);
+        Member member2 = new Member("member1", 10, teamB);
+
+        memberRepository.save(member1);
+        memberRepository.save(member2);
+
+        em.flush();
+        em.clear();
+
+        List<Member> members = memberRepository.findEntityGraphByUsername("member1");
+        for (Member member : members) {
+            System.out.println("member = " + member);
+            System.out.println("member.getTeam().getClass() = " + member.getTeam().getClass()); // 실제 엔티티 객체가 조회됨
+            System.out.println("member.getTeam().getName() = " + member.getTeam().getName()); // team 과 member 테이블을 조인해서 한방에 가져옴 <- N+1 문제 해결
+        }
+    }
+
+    @Test
+    public void queryHint(){
+        //given
+        Member member1 = new Member("member1", 10);
+        memberRepository.save(member1);
+        em.flush();
+        em.clear();
+
+        //when
+        Member findmember = memberRepository.findReadOnlyByUsername("member1");
+        findmember.changeUsername("member2"); // 더티 체킹 무력화 상태
+
+        em.flush(); // update 쿼리가 안날아감
+    }
+
+    @Test
+    public void lock(){
+        //given
+        Member member1 = new Member("member1", 10);
+        memberRepository.save(member1);
+        em.flush();
+        em.clear();
+
+        //when
+        List<Member> result = memberRepository.findLockByUsername("member1");
+
+    }
+    @Test
+    public void callCustom(){
+        List<Member> result = memberRepository.findMemberCustom();
+    }
 }
